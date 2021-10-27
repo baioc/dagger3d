@@ -1,0 +1,25 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# Fable generated files
+.fable
+fable_modules
+*.fs.js
+bundle.js
+temp/**
+
+# Node.js
+node_modules/
+
+# Paket dependency manager
+.paket/
+paket-files/
