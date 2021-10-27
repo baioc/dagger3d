@@ -16,6 +16,7 @@ module.exports = {
             publicPath: "/",
         },
         port: 8080,
+        hot: true,
     },
     module: {
     }

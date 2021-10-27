@@ -4,6 +4,10 @@ open Feliz
 open Feliz.Bulma
 open Elmish
 open Elmish.React
+#if DEBUG
+open Elmish.Debug
+open Elmish.HMR
+#endif
 
 
 type Model = Model of int
@@ -28,4 +32,8 @@ let view model dispatch =
 
 Program.mkProgram init update view
 |> Program.withReactBatched "elmish-app"
+#if DEBUG
+|> Program.withConsoleTrace
+|> Program.withDebugger
+#endif
 |> Program.runWith 0
