@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "postinstall": "dotnet tool restore && dotnet paket install",
+    "postinstall": "dotnet tool restore && dotnet femto src/App.fsproj --resolve",
     "start": "dotnet fable watch src/ --run webpack-dev-server --mode=development",
     "build": "dotnet fable src/ && webpack --mode=production"
   },
@@ -10,5 +10,10 @@
     "webpack-cli": "^4.9.1",
     "webpack-dev-server": "^4.3.1"
   },
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "dependencies": {
+    "bulma": "^0.9.3",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2"
+  }
 }

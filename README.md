@@ -1,12 +1,13 @@
 # Fable Minimal App
 
-This is a small Fable app project so you can easily get started and add your own code progressively. For more comprehensive templates [check this page](https://fable.io/docs/2-steps/your-first-fable-project.html).
+This is a small Fable app project.
+
 
 ## Requirements
 
 * [dotnet SDK](https://www.microsoft.com/net/download/core) 5.0 or higher
-* [node.js](https://nodejs.org)
-* An F# editor like Visual Studio, Visual Studio Code with [Ionide](http://ionide.io/) or [JetBrains Rider](https://www.jetbrains.com/rider/)
+* [node.js](https://nodejs.org), which includes NPM
+
 
 ## Building and running the app
 
@@ -17,6 +18,7 @@ This is a small Fable app project so you can easily get started and add your own
 Any modification you do to the F# code will be reflected in the web page after saving.
 
 > Note: check the "scripts" section in `package.json` to see the commands triggered by the steps above.
+
 
 ## Bundling for release
 

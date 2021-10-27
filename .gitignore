@@ -14,7 +14,7 @@ bld/
 .fable
 fable_modules
 *.fs.js
-bundle.js
+bundle.js*
 temp/**
 
 # Node.js
@@ -23,3 +23,7 @@ node_modules/
 # Paket dependency manager
 .paket/
 paket-files/
+
+# Ionide
+.fake
+.ionide

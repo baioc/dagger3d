@@ -1,8 +1,9 @@
 source https://api.nuget.org/v3/index.json
 
 storage: none
-framework: net5.0, netstandard2.1
+framework: net5.0, netstandard2.1, netstandard2.0
 
+nuget Fable.Elmish.React
+nuget Fable.React.DrawingCanvas
+nuget Feliz.Bulma
 nuget FSharp.Core content: none
-nuget Fable.Core 3.2.3
-nuget Fable.Browser.Dom 2.2.0
