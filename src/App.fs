@@ -133,7 +133,7 @@ let page (engine: Engine.Internal.Engine<_,_>) dispatch =
         let ctx = canvas.getContext_2d()
         do
             if ctx.imageSmoothingEnabled then ctx.imageSmoothingEnabled <- false
-            ctx.clearRect(0.0, 0.0, float ctx.Width, float ctx.Height)
+            ctx.clearRect(0.0, 0.0, float ctx.width, float ctx.height)
             ctx.save()
             engine.Game.Draw engine.State ctx
             ctx.restore()

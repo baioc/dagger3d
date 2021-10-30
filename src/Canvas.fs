@@ -12,8 +12,22 @@ module Canvas =
     /// Check https://github.com/davedawkins/Fable.React.DrawingCanvas.
     type Canvas = CanvasRenderingContext2D
     type CanvasRenderingContext2D with
-        member this.Width = int this.canvas.width * 1<px>
-        member this.Height = int this.canvas.height * 1<px>
+        member this.width = int this.canvas.width
+
+        member this.height = int this.canvas.height
+
+        member this.color
+            with get() = this.strokeStyle
+            and set(color: string) = this.strokeStyle <- !^ color; this.fillStyle <- !^ color
+
+        member this.fillRect(x: int, y: int, w: int, h: int) : unit =
+            this.fillRect(float x, float y, float w, float h)
+
+        member this.moveTo(x: int, y: int) =
+            this.moveTo(float x + 0.5, float y)
+
+        member this.lineTo(x: int, y: int) =
+            this.lineTo(float x + 0.5, float y)
 
     // copied from https://github.com/fable-compiler/Fable/blob/main/src/Fable.Core/Fable.Core.JsInterop.fs
     let inline (!^) (x:^t1) : ^t2 =

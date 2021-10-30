@@ -1,5 +1,6 @@
 namespace Engine
 
+open System
 open FSharp.Data.UnitSystems.SI.UnitNames
 
 
@@ -12,6 +13,14 @@ module Units =
     type ms =
         static member perSecond = 1e3<ms/s>
         static member toSecond(x: float<ms>) = x / ms.perSecond
+
+    [<Measure>]
+    type rad
+
+    [<Measure>]
+    type deg =
+        static member perRad = 180.0<deg/rad> / Math.PI
+        static member toRad(x: float<deg>) = x / deg.perRad
 
     [<Measure>]
     type px
