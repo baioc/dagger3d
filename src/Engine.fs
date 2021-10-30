@@ -1,156 +1,140 @@
 module Engine
 
-open FSharp.Data.UnitSystems.SI.UnitSymbols
-
 open Elmish
 
-
-[<Measure>]
-type ms =
-    static member perSecond = 1e3<ms/s>
-    static member toSecond (x: float<ms>) = x / ms.perSecond
-
-[<Measure>]
-type px
+open Engine
+open Engine.Input
 
 
-type KeyboardInput =
-    { Code: string
-      Key: string }
-
-type MouseButton = LeftClick | MiddleClick | RightClick
-
-type MouseInput =
-    { Button: MouseButton
-      X: float
-      Y: float }
-
-type MouseMovement =
-    { Dx: float
-      Dy: float
-      X: float
-      Y: float }
-
-type MouseWheelRotation =
-    { Delta: float }
-
-type TouchId = int64
-
-type ScreenTouch =
-    { Id: TouchId
-      X: float
-      Y: float }
-
-type TouchInput =
-    { Changed: Map<TouchId, ScreenTouch>  }
-
-type Event =
-    | Tick of dt:float<ms>
-    | KeyPressed of key:KeyboardInput
-    | KeyReleased of key:KeyboardInput
-    | MousePressed of button:MouseInput
-    | MouseReleased of button:MouseInput
-    | MouseMoved of MouseMovement
-    | MouseWheelRotated of MouseWheelRotation
-    | TouchStarted of TouchInput
-    | TouchEnded of TouchInput
-    | TouchMoved of TouchInput
-    | TouchCancelled of TouchInput
-    | FocusGained
-    | FocusLost
-
-
+/// Game engine configuration and compile-time constants.
 [<RequireQualifiedAccess>]
-module Configuration =
+module Config =
     let Width = 640<px>
     let Height = 360<px>
-    let FPS = 30.0
 
-type State =
-    { PressedKeys: Set<string>
-      PressedButtons: Set<MouseButton>
-      ActiveTouches: Map<TouchId, ScreenTouch>
-      MousePosition: float * float }
-
-let init () =
-    { PressedKeys = Set.empty
-      PressedButtons = Set.empty
-      ActiveTouches = Map.empty
-      MousePosition = 0.0, 0.0 },
-    Cmd.none
+    let FPS =
+#if DEBUG
+        10.0
+#else
+        30.0
+#endif
 
 
-let handle event state =
-    let state =
+/// Elmish wrapper mixing engine and custom messages. See `Cmd` extension.
+type GameEvent<'custom> =
+    | Input of InputEvent
+    | Custom of 'custom
+
+[<RequireQualifiedAccess>]
+module Cmd =
+    let ofCustom msg = msg |> Custom |> Cmd.ofMsg
+    let ofInput msg = msg |> Input |> Cmd.ofMsg
+
+/// Wraps the game state with some extra runtime information.
+type Runtime<'game> =
+    { State: 'game
+      Input: Input }
+
+[<Struct>]
+type Game<'model, 'msg> =
+    { Init: unit -> 'model * Cmd<GameEvent<'msg>>
+      Update: float<ms> -> Runtime<'model> -> 'model * Cmd<GameEvent<'msg>>
+      Handler: GameEvent<'msg> -> Runtime<'model> -> 'model * Cmd<GameEvent<'msg>>
+      Draw: 'model -> Canvas -> unit }
+
+
+/// For library authors only.
+[<RequireQualifiedAccess>]
+module Internal =
+    // we consider engine states to be equal when the game state is equal
+    [<CustomEquality>] [<NoComparison>]
+    type Engine<'state, 'event when 'state: equality> =
+        { PressedKeys: Set<string> // stores `Code`s, not `Key`s (despite the name)
+          PressedButtons: Set<MouseButton>
+          PressedTouches: Map<TouchId, ScreenTouch>
+          Game: Game<'state, 'event>
+          State: 'state }
+
+        override this.Equals(other) =
+            match other with
+            | :? Engine<'state, 'event> as other -> this.State = other.State
+            | _ -> false
+
+        override this.GetHashCode() =
+            this.State.GetHashCode()
+
+    type EngineEvent<'custom> =
+        | Tick of dt:float<ms>
+        | GameEvent of GameEvent<'custom>
+        | WindowFocusGained
+        | WindowFocusLost
+
+    let load game =
+        let state, cmd = game.Init()
+        { PressedKeys = Set.empty
+          PressedButtons = Set.empty
+          PressedTouches = Map.empty
+          Game = game
+          State = state },
+        Cmd.map GameEvent cmd
+
+    let inline private makeRuntime engine =
+        let isKeyPressed key = Set.contains key engine.PressedKeys
+        let isMouseButtonPressed btn = Set.contains btn engine.PressedButtons
+        let isTouchPressed tch = Map.containsKey tch engine.PressedTouches
+        { State = engine.State
+          Input =
+            { IsKeyPressed = isKeyPressed
+              IsMouseButtonPressed = isMouseButtonPressed
+              IsTouchPressed = isTouchPressed } }
+
+    let handleEvent event engine =
         match event with
-        | Tick _ -> state
+        | Tick dt ->
+            let state, cmd = engine.Game.Update dt (makeRuntime engine)
+            { engine with State = state }, Cmd.map GameEvent cmd
 
-        | KeyPressed key ->
-            { state with
-                  PressedKeys = Set.add key.Code state.PressedKeys }
+        | GameEvent event ->
+            let engine =
+                match event with
+                | Input (KeyboardEvent (KeyPressed key)) ->
+                    { engine with
+                        PressedKeys = Set.add key.Code engine.PressedKeys }
+                | Input (KeyboardEvent (KeyReleased key)) ->
+                    { engine with
+                        PressedKeys = Set.remove key.Code engine.PressedKeys }
+                | Input (MouseEvent (MousePressed btn)) ->
+                    { engine with
+                        PressedButtons = Set.add btn.Button engine.PressedButtons }
+                | Input (MouseEvent (MouseReleased btn)) ->
+                    { engine with
+                        PressedButtons = Set.remove btn.Button engine.PressedButtons }
+                | Input (TouchEvent (TouchPressed tch)) ->
+                    let pressed = tch.Changed
+                    { engine with
+                        PressedTouches =
+                            Map.toSeq engine.PressedTouches
+                            |> Seq.append (Map.toSeq pressed)
+                            |> Map.ofSeq }
+                | Input (TouchEvent (TouchReleased tch)) ->
+                    let released = tch.Changed
+                    { engine with
+                        PressedTouches =
+                            engine.PressedTouches
+                            |> Map.filter (fun id _ -> not (Map.containsKey id released)) }
+                | Input (MouseEvent (MouseMoved _))
+                | Input (MouseEvent (MouseWheelRotated _))
+                | Input (TouchEvent (TouchMoved _))
+                | Custom _ -> engine
 
-        | KeyReleased key ->
-            { state with
-                  PressedKeys = Set.remove key.Code state.PressedKeys }
+            let state, cmd = engine.Game.Handler event (makeRuntime engine)
+            { engine with State = state }, Cmd.map GameEvent cmd
 
-        | MousePressed btn ->
-            { state with
-                  PressedButtons = Set.add btn.Button state.PressedButtons }
+        | WindowFocusLost ->
+            { engine with
+                PressedKeys = Set.empty
+                PressedButtons = Set.empty
+                PressedTouches = Map.empty },
+            Cmd.none
 
-        | MouseReleased btn ->
-            { state with
-                  PressedButtons = Set.remove btn.Button state.PressedButtons }
-
-        | MouseMoved m ->
-            { state with MousePosition = m.X, m.Y }
-
-        | MouseWheelRotated _ -> state
-
-        | TouchStarted tch ->
-            let started = tch.Changed
-            { state with
-                  ActiveTouches =
-                    Map.toSeq state.ActiveTouches
-                    |> Seq.append (Map.toSeq started)
-                    |> Map.ofSeq }
-
-        | TouchEnded tch ->
-            let ended = tch.Changed
-            { state with
-                  ActiveTouches =
-                    state.ActiveTouches
-                    |> Map.filter (fun id touch -> not (Map.containsKey id ended)) }
-
-        | TouchMoved _ -> state
-
-        | TouchCancelled tch ->
-            let cancelled = tch.Changed
-            { state with
-                  ActiveTouches =
-                    state.ActiveTouches
-                    |> Map.filter (fun id touch -> not (Map.containsKey id cancelled)) }
-
-        | FocusGained _ -> state
-
-        | FocusLost _ -> state
-
-    state, Cmd.none
-
-
-open Browser
-open Browser.Types
-open Fable.Core
-open Fable.Core.JsInterop
-
-[<AutoOpen>]
-module Canvas =
-    let rgb r g b =
-        $"rgb(%d{r}, %d{g}, %d{b})"
-
-    let rgba r g b a =
-        $"rgb(%d{r}, %d{g}, %d{b}, %f{a})"
-
-let draw (ctx: CanvasRenderingContext2D) model =
-    ctx.clearRect(0.0, 0.0, float Configuration.Width, float Configuration.Height)
-    ctx.fillStyle <- !^ (rgba 255 0 255 0.5)
-    ctx.fillRect(0.0, 0.0, float Configuration.Width, float Configuration.Height)
+        | WindowFocusGained -> engine, Cmd.none
