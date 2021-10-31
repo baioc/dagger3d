@@ -9,14 +9,13 @@ open Engine.Input
 /// Game engine configuration and compile-time constants.
 [<RequireQualifiedAccess>]
 module Config =
-    let Width = 640<px>
-    let Height = 360<px>
-
+    let WIDTH = 640<px>
+    let HEIGHT = 360<px>
     let FPS =
 #if DEBUG
         10.0
 #else
-        30.0
+        60.0
 #endif
 
 
@@ -78,7 +77,7 @@ module Internal =
           State = state },
         Cmd.map GameEvent cmd
 
-    let inline private makeRuntime engine =
+    let private makeRuntime engine =
         let isKeyPressed key = Set.contains key engine.PressedKeys
         let isMouseButtonPressed btn = Set.contains btn engine.PressedButtons
         let isTouchPressed tch = Map.containsKey tch engine.PressedTouches

@@ -18,7 +18,9 @@ module Canvas =
 
         member this.color
             with get() = this.strokeStyle
-            and set(color: string) = this.strokeStyle <- !^ color; this.fillStyle <- !^ color
+            and set(color: string) =
+                this.strokeStyle <- !^ color
+                this.fillStyle <- !^ color
 
         member this.fillRect(x: int, y: int, w: int, h: int) : unit =
             this.fillRect(float x, float y, float w, float h)
@@ -29,12 +31,8 @@ module Canvas =
         member this.lineTo(x: int, y: int) =
             this.lineTo(float x + 0.5, float y)
 
-    // copied from https://github.com/fable-compiler/Fable/blob/main/src/Fable.Core/Fable.Core.JsInterop.fs
-    let inline (!^) (x:^t1) : ^t2 =
-        ((^t1 or ^t2) : (static member op_ErasedCast : ^t1 -> ^t2) x)
-
     let rgb r g b =
         $"rgb(%d{r}, %d{g}, %d{b})"
 
     let rgba r g b a =
-        $"rgb(%d{r}, %d{g}, %d{b}, %f{a})"
+        $"rgba(%d{r}, %d{g}, %d{b}, %g{a})"

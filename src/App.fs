@@ -77,10 +77,10 @@ module Program =
 
 
 [<Literal>]
-let CanvasId = "canvas"
+let CANVAS_ID = "canvas"
 
 let relativeXY clientX clientY =
-    let canvas = document.getElementById (CanvasId) :?> HTMLCanvasElement
+    let canvas = document.getElementById (CANVAS_ID) :?> HTMLCanvasElement
     let rect = canvas.getBoundingClientRect ()
     let x = clientX - rect.left
     let y = clientY - rect.top
@@ -127,14 +127,16 @@ let TouchMoved e = e |> TouchMoved |> TouchEvent |> Input
 
 let page (engine: Engine.Internal.Engine<_,_>) dispatch =
     // the canvas may not yet exist on the first call to this view
-    let canvas = document.getElementById(CanvasId)
+    let canvas = document.getElementById(CANVAS_ID)
     if not (isNull canvas) then
         let canvas = canvas :?> HTMLCanvasElement
         let ctx = canvas.getContext_2d()
         do
-            if ctx.imageSmoothingEnabled then ctx.imageSmoothingEnabled <- false
-            ctx.clearRect(0.0, 0.0, float ctx.width, float ctx.height)
             ctx.save()
+            ctx.imageSmoothingEnabled <- false
+            ctx.lineWidth <- 1.0
+            ctx.lineCap <- "butt"
+            ctx.clearRect(0.0, 0.0, float ctx.width, float ctx.height)
             engine.Game.Draw engine.State ctx
             ctx.restore()
 
@@ -146,9 +148,9 @@ let page (engine: Engine.Internal.Engine<_,_>) dispatch =
                 prop.children [
                     Bulma.centered [
                         Html.canvas [
-                            prop.id CanvasId
-                            prop.width (int Config.Width)
-                            prop.height (int Config.Height)
+                            prop.id CANVAS_ID
+                            prop.width (int Config.WIDTH)
+                            prop.height (int Config.HEIGHT)
                             prop.tabIndex 0 // needed for focus
                             prop.style [ style.cursor "crosshair" ]
                             color.hasBackgroundBlack
@@ -187,9 +189,9 @@ let subscribe initial =
     Cmd.ofSub <| fun dispatch ->
         // NOTE: interval is set to an integer number of milliseconds, so since
         // we're rounding it down, actual FPS may be higher than the target FPS
-        let timeStep = int <| (1.0<s> * ms.perSecond) / Config.FPS
-        let tick () = Engine.Internal.Tick (float timeStep * 1.0<ms>) |> dispatch
-        window.setInterval(tick, timeStep) |> ignore
+        let timeStep = 1.0<s> * ms.perSecond / Config.FPS
+        let tick () = Engine.Internal.Tick timeStep |> dispatch
+        window.setInterval(tick, int timeStep) |> ignore
 
 // notice that we're using "batched" mode. this means that Elmish updates will
 // trigger a `requestAnimationFrame` instead of rendering immediately and, if a
