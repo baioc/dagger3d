@@ -43,7 +43,7 @@ type Player =
       Dir: float<rad> }
 
     static member SPEED = 32.0<1/s>
-    static member TURN = 2.0<rad/s>
+    static member TURN = 2.5<rad/s>
     static member FOV = deg.toRad 90.0<deg>
 
 type World =
