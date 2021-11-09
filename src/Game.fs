@@ -60,8 +60,9 @@ let inline step x y len (dir: float<rad>) =
     let x = float x
     let y = float y
     let len = float len
-    let dy = len * Math.Sin(float dir)
-    let dx = len * Math.Cos(float dir)
+    let dir = float dir
+    let dy = len * sin dir
+    let dx = len * cos dir
     x + dx, y + dy
 
 let inline distance x1 y1 x2 y2 =
@@ -69,7 +70,7 @@ let inline distance x1 y1 x2 y2 =
     let y1 = float y1
     let x2 = float x2
     let y2 = float y2
-    Math.Sqrt((x1 - x2)**2.0 + (y1 - y2)**2.0)
+    sqrt ((x1 - x2)**2.0 + (y1 - y2)**2.0)
 
 
 let init () =
@@ -85,11 +86,11 @@ let init () =
                W; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; W
                W; o; W; W; W; W; W; W; o; o; o; o; W; o; o; o; W; o; o; o; W
                W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
-               W; o; D; o; o; o; o; o; o; o; W; W; D; W; o; W; D; W; W; o; W
+               W; o; D; o; o; o; o; o; o; o; W; W; D; W; o; W; o; W; W; o; W
                W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
-               W; o; W; W; W; W; W; W; o; o; o; o; o; o; o; o; o; o; o; o; W
+               W; o; o; W; W; W; W; W; o; o; o; o; o; o; o; o; o; o; o; o; W
                W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
-               W; o; W; o; o; o; o; o; o; o; W; W; D; W; o; W; D; W; W; o; W
+               W; o; W; o; o; o; o; o; o; o; W; W; o; W; o; W; D; W; W; o; W
                W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
                W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
                W; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; W
@@ -179,11 +180,11 @@ let draw state (ctx: Canvas) =
             x', y'
 
         // march the ray forward until something is hit (or map limit reached)
-        let gridX, gridY = float (Math.Sign(dx)*Tile.SIZE), float (Math.Sign(dy)*Tile.SIZE)
-        let stepY = float Tile.SIZE * Math.Tan(float angle)
-        let stepY = Math.Abs(stepY) * float (Math.Sign(dy))
-        let stepX = float Tile.SIZE * Math.Tan(Math.PI/2.0 - float angle)
-        let stepX = Math.Abs(stepX) * float (Math.Sign(dx))
+        let gridX, gridY = float (Tile.SIZE * sign dx), float (Tile.SIZE * sign dy)
+        let stepY = float Tile.SIZE * tan (float angle)
+        let stepY = abs stepY * float (sign dy)
+        let stepX = float Tile.SIZE * tan (Math.PI/2.0 - float angle)
+        let stepX = abs stepX * float (sign dx)
         let rec rayMarch x y intersectX intersectY =
             // move to the closest grid intersection point
             let distX = distance x y <|| intersectX
@@ -216,7 +217,7 @@ let draw state (ctx: Canvas) =
             | Empty -> ()
             | Wall color ->
                 let distance = distance px py <|| position
-                let fishEyeCorrected = distance * cos (float (dir - angle))
+                let fishEyeCorrected = distance * cos (float (angle - dir))
                 let height = 2048.0 / fishEyeCorrected
                 ctx.color <- color
                 ctx.drawColumn(column, int height)
