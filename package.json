@@ -2,7 +2,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "postinstall": "dotnet tool restore && dotnet paket install && dotnet femto src/App.fsproj --resolve",
+    "postinstall": "dotnet tool restore && dotnet paket install && dotnet femto src/dagger3d.fsproj --resolve",
     "start": "dotnet fable watch src/ --run webpack-dev-server --mode=development",
     "build": "dotnet fable src/ --run webpack --mode=production"
   },

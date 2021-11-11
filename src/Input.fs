@@ -1,78 +1,61 @@
 namespace Engine
 
 
+[<AutoOpen>]
 module Input =
 
-    [<AutoOpen>]
-    module Keyboard =
-        /// Physical (`Code`) and logical (`Key`) key. See https://keycode.info/
-        [<Struct>]
-        type KeyboardInput =
-            { Code: string; Key: string }
-
-        type KeyboardEvent =
-            | KeyPressed of key:KeyboardInput
-            | KeyReleased of key:KeyboardInput
+    /// Physical (`Code`) and logical (`Key`) key. See https://keycode.info/
+    [<Struct>]
+    type KeyboardInput =
+        { Code: string; Key: string }
 
 
-    [<AutoOpen>]
-    module Mouse =
-        [<Struct>]
-        type MouseButton =
-            | LeftClick
-            | MiddleClick
-            | RightClick
+    [<Struct>]
+    type MouseButton =
+        | LeftClick
+        | MiddleClick
+        | RightClick
 
-        [<Struct>]
-        type MouseInput =
-            { Button: MouseButton
-              X: float<px>; Y: float<px> }
+    [<Struct>]
+    type MouseInput =
+        { Button: MouseButton
+          X: float<px>; Y: float<px> }
 
-        [<Struct>]
-        type MouseMovement =
-            { Dx: float<px>; Dy: float<px>
-              X: float<px>; Y: float<px> }
+    [<Struct>]
+    type MouseMovement =
+        { Dx: float<px>; Dy: float<px>
+          X: float<px>; Y: float<px> }
 
-        [<Struct>]
-        type MouseWheelRotation =
-            { Delta: float }
-
-        type MouseEvent =
-            | MousePressed of button:MouseInput
-            | MouseReleased of button:MouseInput
-            | MouseMoved of MouseMovement
-            | MouseWheelRotated of MouseWheelRotation
+    [<Struct>]
+    type MouseWheelRotation =
+        { Delta: float }
 
 
-    [<AutoOpen>]
-    module Touch =
-        type TouchId = int64
+    type TouchId = int64
 
-        [<Struct>]
-        type ScreenTouch =
-            { Id: TouchId
-              X: float<px>; Y: float<px> }
+    [<Struct>]
+    type ScreenTouch =
+        { Id: TouchId
+          X: float<px>; Y: float<px> }
 
-        [<Struct>]
-        type TouchInput =
-            { Changed: Map<TouchId, ScreenTouch> }
-
-        type TouchEvent =
-            | TouchPressed of touch:TouchInput
-            | TouchReleased of touch:TouchInput
-            | TouchMoved of touch:TouchInput
+    [<Struct>]
+    type TouchInput =
+        { Changed: Map<TouchId, ScreenTouch> }
 
 
     type InputEvent =
-        | KeyboardEvent of KeyboardEvent
-        | MouseEvent of MouseEvent
-        | TouchEvent of TouchEvent
-
-
-open Input
+        | KeyPressed of key:KeyboardInput
+        | KeyReleased of key:KeyboardInput
+        | MousePressed of button:MouseInput
+        | MouseReleased of button:MouseInput
+        | MouseMoved of MouseMovement
+        | MouseWheelRotated of MouseWheelRotation
+        | TouchPressed of touch:TouchInput
+        | TouchReleased of touch:TouchInput
+        | TouchMoved of touch:TouchInput
 
 /// Runtime input information.
 type Input =
-    { IsKeyPressed: string -> bool
-      IsMouseButtonPressed: MouseButton -> bool
-      IsTouchPressed: TouchId -> bool }
+    abstract member IsKeyPressed: keyCode:string -> bool
+    abstract member IsMouseButtonPressed: button:MouseButton -> bool
+    abstract member TryFindPressedTouch: touchId:TouchId -> ScreenTouch option

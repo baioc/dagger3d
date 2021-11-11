@@ -1,39 +1,36 @@
-/// Ad hoc game logic that is fed into the engine when the app starts.
 module Game
 
-open System
 open LanguagePrimitives
+open System
 
-open Browser.Types
 open Elmish
-
 open Engine
 
 
-type CanvasRenderingContext2D with
+type Canvas with
     /// Draws a single, vertically centered, 1px-wide column.
-    member this.drawColumn(column: int, columnHeight: int) =
-        this.lineWidth <- 1.0
-        this.beginPath()
-        this.moveTo(column, this.height/2 - columnHeight/2)
-        this.lineTo(column, this.height/2 + columnHeight/2)
-        this.stroke()
+    member this.DrawColumn (color: Color) (x: int<px>) (h: int<px>) : unit =
+        let top = this.Height/2 - h/2
+        let bottom = this.Height/2 + h/2
+        this.DrawLine color x top x bottom
 
+
+/// Game engine configuration.
+let CFG = Config.Default
 
 type Tile =
     | Empty
-    | Wall of color:string
+    | Wall of color:Color
 
-    static member SIZE = 8<1> // a tile ocupies SIZExSIZE world units
+    static member SIZE = 2<1> // a tile ocupies SIZExSIZE world units
 
-/// Game map, made out of a grid of tiles in order to do DDA raycasting.
-[<Struct>]
-type Map =
+/// Game map, made out of a grid of tiles in order to do efficient raycasting.
+type Map = // XXX: could be `Tile[,]` if Fable supported multi-dimensional arrays
     { Tiles: Tile[]
       Width: int; Height: int } // dimensions are in tile units, not world units
 
-    static member make (w, h) tiles =
-        { Tiles = tiles; Width = w; Height = h }
+    static member make (w: uint, h: uint) tiles =
+        { Tiles = tiles; Width = int w; Height = int h }
 
     member this.Item(i, j) =
         this.Tiles.[i * this.Width + j]
@@ -42,34 +39,34 @@ type Player =
     { X: float; Y: float
       Dir: float<rad> }
 
-    static member SPEED = 32.0<1/s>
+    // Controller configuration.
+    static member SPEED = 14.0<1/s>
     static member TURN = 2.5<rad/s>
-    static member FOV = deg.toRad 90.0<deg>
+    static member FOV = deg.toRad 60.0<deg>
+    static member DRAG_THRESHOLD = 0.1
+    static member DRAG_SCALING_X = float CFG.Width * 0.333
+    static member DRAG_SCALING_Y = float CFG.Height * 0.666
 
 type World =
-    { Map: Map
-      Player: Player }
+    { Player: Player
+      Map: Map
+      ShowMinimap: bool
+      LeftStick: ScreenTouch option }
 
 
 /// Converts to float, preserving unit of measure.
-let inline f<[<Measure>] 'u> (x: int<'u>): float<'u> =
+let f<[<Measure>] 'u> (x: int<'u>): float<'u> =
     x |> float |> FloatWithMeasure
 
 /// "Steps" point `x, y` a distance `len` towards a certain direction `dir`.
-let inline step x y len (dir: float<rad>) =
-    let x = float x
-    let y = float y
-    let len = float len
+let step x y len (dir: float<rad>) =
+    let x, y = float x, float y
     let dir = float dir
     let dy = len * sin dir
     let dx = len * cos dir
     x + dx, y + dy
 
-let inline distance x1 y1 x2 y2 =
-    let x1 = float x1
-    let y1 = float y1
-    let x2 = float x2
-    let y2 = float y2
+let distance x1 y1 x2 y2 =
     sqrt ((x1 - x2)**2.0 + (y1 - y2)**2.0)
 
 
@@ -81,37 +78,79 @@ let init () =
     let D = Wall (rgb 0x3a 0x82 0x83)
     { Map =
         Map.make
-            (21, 13)
-            [| W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W
-               W; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; W
-               W; o; W; W; W; W; W; W; o; o; o; o; W; o; o; o; W; o; o; o; W
-               W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
-               W; o; D; o; o; o; o; o; o; o; W; W; D; W; o; W; o; W; W; o; W
-               W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
-               W; o; o; W; W; W; W; W; o; o; o; o; o; o; o; o; o; o; o; o; W
-               W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
-               W; o; W; o; o; o; o; o; o; o; W; W; o; W; o; W; D; W; W; o; W
-               W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
-               W; o; W; o; o; o; o; o; o; o; o; o; W; o; o; o; W; o; o; o; W
-               W; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; W
-               W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W |]
-      Player = { X = x; Y = y; Dir = 0.0<rad> } },
-    Cmd.none
+            (28u, 19u)
+            [| W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W
+               W; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; W
+               W; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; W
+               W; o; o; W; W; W; W; W; W; W; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; D; o; o; o; o; o; o; o; o; W; W; W; D; W; W; o; W; W; o; W; W; W; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; o; W; W; W; W; W; W; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; W; W; W; o; W; W; o; W; W; D; W; W; W; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; W; o; o; o; o; o; o; o; o; o; o; o; W; o; o; o; o; o; W; o; o; o; o; o; W
+               W; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; W
+               W; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; o; W
+               W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W; W |]
+      ShowMinimap = false
+      LeftStick = None
+      Player = { X = x; Y = y; Dir = 0.0<rad> } }
+    |> just
 
 
-let update dt game =
-    let isKeyPressed = game.Input.IsKeyPressed
+let update dt (game: Runtime<_>) =
     let player = game.State.Player
     let map = game.State.Map
 
-    // joystick-style controls: move forwards/backwards and steer left/right
-    let speed = 0.0<1/s>
-    let speed = if isKeyPressed "ArrowUp" || isKeyPressed "KeyW" then speed + Player.SPEED else speed
-    let speed = if isKeyPressed "ArrowDown" || isKeyPressed "KeyS" then speed - Player.SPEED else speed
-    let speed = if speed < 0.0<1/s> then speed*0.5 else speed
-    let steer = 0.0<rad/s>
-    let steer = if isKeyPressed "ArrowLeft" || isKeyPressed "KeyA" then steer - Player.TURN else steer
-    let steer = if isKeyPressed "ArrowRight" || isKeyPressed "KeyD" then steer + Player.TURN else steer
+    // joystick-style movement: speed forwards/backwards and steer left/right
+    let dragX, dragY =
+        match game.State.LeftStick with
+        | None -> 0.0, 0.0
+        | Some initial ->
+            match game.Input.TryFindPressedTouch initial.Id with
+            | None -> 0.0, 0.0
+            | Some current ->
+                let dx = (current.X - initial.X)
+                let dy = (current.Y - initial.Y)
+                Math.Clamp(float <| dx / Player.DRAG_SCALING_X, -1.0, +1.0),
+                Math.Clamp(float <| dy / Player.DRAG_SCALING_Y, -1.0, +1.0)
+    let up =
+        if game.Input.IsKeyPressed "ArrowUp" || game.Input.IsKeyPressed "KeyW" then
+            1.0
+        elif dragY < -Player.DRAG_THRESHOLD then
+            abs dragY
+        else
+            0.0
+    let down =
+        if game.Input.IsKeyPressed "ArrowDown" || game.Input.IsKeyPressed "KeyS" then
+            1.0
+        elif dragY > Player.DRAG_THRESHOLD then
+            abs dragY
+        else
+            0.0
+    let left =
+        if game.Input.IsKeyPressed "ArrowLeft" || game.Input.IsKeyPressed "KeyA" then
+            1.0
+        elif dragX < -Player.DRAG_THRESHOLD then
+            abs dragX
+        else
+            0.0
+    let right =
+        if game.Input.IsKeyPressed "ArrowRight" || game.Input.IsKeyPressed "KeyD" then
+            1.0
+        elif dragX > Player.DRAG_THRESHOLD then
+            abs dragX
+        else
+            0.0
+    let speed = up * Player.SPEED - down * Player.SPEED
+    let speed = if speed < 0.0<1/s> then speed * 0.75 else speed
+    let steer = right * Player.TURN - left * Player.TURN
 
     // scale by timestep
     let dist = speed / ms.perSecond * dt
@@ -124,7 +163,7 @@ let update dt game =
     let x = Math.Clamp(x, 0.0, float <| (map.Width - 1)  * Tile.SIZE)
     let y = Math.Clamp(y, 0.0, float <| (map.Height - 1) * Tile.SIZE)
 
-    // check for collisions
+    // check for map collisions
     let x, y =
         let i, j = int y / Tile.SIZE, int x / Tile.SIZE
         if j < 0 || j >= map.Width || i < 0 || i >= map.Height then
@@ -135,40 +174,70 @@ let update dt game =
             | Wall w -> player.X, player.Y
 
     let player = { player with Dir = dir; X = x; Y = y }
-    { game.State with Player = player  }, Cmd.none
+    just { game.State with Player = player  }
 
 
-let handler event game =
-    game.State, Cmd.none
+let handler event (game: Runtime<_>) =
+    let state = game.State
+    let hasLeftStick = Option.isSome state.LeftStick
+
+    match event with
+    // when a touch is detected on the left side of the screen, create a joystick
+    | Input (TouchPressed { Changed = pressed }) ->
+        let touch =
+            pressed
+            |> Map.tryFindKey (fun id touch -> int touch.X < CFG.Width/2<px>)
+            |> Option.map (fun id -> Map.find id pressed)
+        match touch with
+        | Some touch when not hasLeftStick ->
+            just { state with LeftStick = Some touch }
+        | _ -> just state
+
+    // unattach the left joystick when its finger is released
+    | Input (TouchReleased { Changed = released }) when hasLeftStick ->
+        let leftStick = Option.get state.LeftStick
+        if Map.containsKey leftStick.Id released then
+            just { state with LeftStick = None }
+        else
+            just state
+
+    // toggle minimap ON
+    | Input (KeyPressed { Code = "Tab" }) ->
+        just { state with ShowMinimap = true }
+
+    // toggle minimap OFF
+    | Input (KeyReleased { Code = "Tab" }) ->
+        just { state with ShowMinimap = false }
+
+    | _ -> just state
 
 
-let draw state (ctx: Canvas) =
-    let w, h = ctx.width, ctx.height
+let draw state (canvas: Canvas) =
     let player = state.Player
-    let px, py, dir = player.X, player.Y, player.Dir
-    let fov = Player.FOV
     let map = state.Map
+    let px, py = player.X, player.Y
+    let w, h = canvas.Width, canvas.Height
 
     // background (floor and ceiling)
-    ctx.color <- rgb 0 0 0
-    ctx.fillRect(0, 0, w, h / 2)
-    ctx.color <- rgb 0x2d 0x26 0x1c
-    ctx.fillRect(0, h / 2, w, h / 2)
+    canvas.DrawRect (rgb 0 0 0)          0<px> 0<px> w (h/2)
+    canvas.DrawRect (rgb 0x2d 0x26 0x1c) 0<px> (h/2) w (h/2)
 
     // DDA raycasting
-    for column in 0 .. w - 1 do
+    for column in 0 .. int w - 1 do
+        let column = column * 1<px>
+
         // player-relative angle to cast the ray
         let angle =
-            let radPerPixel = fov / f (w * 1<px>)
-            let pixelsFromCenter = (column - w/2) * 1<px>
-            dir + radPerPixel * (f pixelsFromCenter)
+            let radPerPixel = Player.FOV / f w
+            let pixelsFromCenter = column - w/2
+            player.Dir + radPerPixel * (f pixelsFromCenter)
         let angle = angle % (2.0<rad>*Math.PI)
 
         // to find the first grid-aligned intersections, we solve the system
         // line equation twice, for known x' and y' such that if m = dy/dx,
         // then y' = py + m * (x' - px) and x' = px + (1/m) * (y' - py)
         let dx, dy =
-            let tx, ty = step px py (2*Tile.SIZE) angle
+            let tx, ty = step px py (float <| 2*Tile.SIZE) angle
             tx - px, ty - py
         let intersectX =
             let x' = px - (px % float Tile.SIZE) + (if dx > 0.0 then float Tile.SIZE else 0.0)
@@ -212,38 +281,33 @@ let draw state (ctx: Canvas) =
 
         // draw a single vertical column based on what was hit
         match hit with
+        | None -> ()
         | Some (position, tile) ->
             match map.[tile] with
             | Empty -> ()
             | Wall color ->
                 let distance = distance px py <|| position
-                let fishEyeCorrected = distance * cos (float (angle - dir))
-                let height = 2048.0 / fishEyeCorrected
-                ctx.color <- color
-                ctx.drawColumn(column, int height)
-        | None -> ()
+                let fishEyeCorrected = distance * cos (float (angle - player.Dir))
+                let height = 1024.0 / fishEyeCorrected
+                canvas.DrawColumn color column (int height * 1<px>)
 
     // minimap
-    ctx.save()
-    ctx.globalAlpha <- 0.5
-    ctx.globalCompositeOperation <- "lighter"
-    for row in 0 .. map.Height - 1 do
-        for col in 0 .. map.Width - 1 do
-            match map.[row, col] with
-            | Empty -> ()
-            | Wall color ->
-                ctx.color <- color
-                ctx.fillRect(col * Tile.SIZE, row * Tile.SIZE, Tile.SIZE, Tile.SIZE)
-    ctx.restore()
+    if state.ShowMinimap then
+        let minimapScale = 2<px>
+        for row in 0 .. map.Height - 1 do
+            for col in 0 .. map.Width - 1 do
+                match map.[row, col] with
+                | Empty -> ()
+                | Wall color ->
+                    let tileSize = Tile.SIZE * minimapScale
+                    let color = rgba (color.R + 64) (color.G + 64) (color.B + 64) 0.5
+                    canvas.DrawRect color (col * tileSize) (row * tileSize) tileSize tileSize
 
-    // "miniplayer"
-    ctx.color <- rgba 0 255 0 0.5
-    ctx.fillRect(px, py, 4.0, 4.0)
-    ctx.beginPath()
-    ctx.moveTo(px, py)
-    let tx, ty = step px py 16.0 dir in ctx.lineTo(tx, ty)
-    ctx.stroke()
+        canvas.DrawRect (rgba 0 255 0 0.5) (int px * minimapScale) (int py * minimapScale) (2 * minimapScale) (2 * minimapScale)
+        let tx, ty = step px py (6.0 * float minimapScale) player.Dir
+        canvas.DrawLine (rgba 0 255 0 0.5) (int px * minimapScale) (int py * minimapScale) (int tx * minimapScale) (int ty * minimapScale)
 
 
-let game =
-    { Init = init; Update = update; Handler = handler; Draw = draw }
+Game.make init update handler draw
+|> Game.withConfig CFG
+|> Game.run
